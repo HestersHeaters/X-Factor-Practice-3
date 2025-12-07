@@ -1,0 +1,50 @@
+name: Restore & Smoke (macOS + Windows)
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  smoke:
+    name: Restore & Smoke (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest, windows-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup R
+        id: setup-r
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: '4.3'   # match renv.lock major.minor
+
+      - name: Setup pandoc
+        uses: r-lib/actions/setup-pandoc@v2
+
+      - name: Cache R packages
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.R_LIBS_USER }}
+          key: ${{ runner.os }}-r-${{ steps.setup-r.outputs.installed-r-version }}-${{ hashFiles('renv.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-r-${{ steps.setup-r.outputs.installed-r-version }}-
+
+      - name: Install renv
+        run: Rscript -e "if(!requireNamespace('renv', quietly=TRUE)) install.packages('renv')"
+
+      - name: Assert renv.lock R matches CI R (major.minor)
+        run: |
+          Rscript -e "if(!requireNamespace('jsonlite', quietly=TRUE)) install.packages('jsonlite')"
+          Rscript -e "lock <- jsonlite::fromJSON('renv.lock')$R$Version; ci <- paste0(R.version$major,'.',strsplit(R.version$minor,'[.]')[[1]][1]); lk <- sub('^(\\d+\\.\\d+).*','\\1', lock); cat('CI R:', ci, '\nLockfile R:', lock, '\n'); if (ci != lk) stop(sprintf('R mismatch: CI %s vs lockfile %s', ci, lock))"
+
+      - name: Bootstrap (restore + chromote)
+        run: Rscript bootstrap.R
+
+      - name: Parse scripts
+        run: |
+          Rscript -e "tools::parse_R('Create X Factor Update Graphics.R')"
+          Rscript -e "tools::parse_R('Render X Factor Update Graphics.R')"
