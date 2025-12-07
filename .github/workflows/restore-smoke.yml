@@ -1,0 +1,46 @@
+name: Restore & Smoke (macOS)
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  mac-smoke:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          # Pin to your R major.minor if you know it (e.g., '4.3').
+          # 'latest' also works, but matching your renv.lock R helps avoid compiles.
+          r-version: 'latest'
+
+      - name: Setup pandoc
+        uses: r-lib/actions/setup-pandoc@v2
+
+      - name: Cache R packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/Library/Caches/R
+            ~/.cache/R
+            ${{ env.R_LIBS_USER }}
+          key: ${{ runner.os }}-r-${{ runner.arch }}-${{ hashFiles('renv.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-r-${{ runner.arch }}-
+
+      - name: Install renv
+        run: Rscript -e "if(!requireNamespace('renv', quietly=TRUE)) install.packages('renv')"
+
+      - name: Bootstrap (restore + chromote)
+        run: Rscript bootstrap.R
+
+      # Parse-only smoke (no data access needed)
+      - name: Parse scripts
+        run: |
+          Rscript -e "tools::parse_R('Create X Factor Update Graphics.R')"
+          Rscript -e "tools::parse_R('Render X Factor Update Graphics.R')"
