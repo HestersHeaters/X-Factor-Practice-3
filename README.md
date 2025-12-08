@@ -169,5 +169,5 @@ Optional badge (replace `OWNER/REPO`):
 ---
 
 ## License
+Noncommercial — see [LICENSE](./LICENSE) (PolyForm Noncommercial 1.0.0).
 
-Add a license (e.g., MIT) as `LICENSE`, or select one in GitHub.
