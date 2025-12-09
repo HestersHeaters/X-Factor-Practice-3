@@ -65,14 +65,15 @@ jobs:
             stop(paste("Missing expected Excel files:\n  -", missing))
           }'
 
-      - name: Assert renv.lock R matches CI R (major.minor)
+      -       - name: Assert renv.lock R matches CI R (major.minor)
         run: |
           Rscript -e "if(!requireNamespace('jsonlite', quietly=TRUE)) install.packages('jsonlite')"
           Rscript -e "lock <- jsonlite::fromJSON('renv.lock')$R$Version; \
-                      ci <- paste0(R.version$major,'.',strsplit(R.version$minor,'[.]')[[1]][1]); \
-                      lk <- sub('^(\\d+\\.\\d+).*','\\1', lock); \
+                      ci  <- as.character(getRversion()); \
+                      ci_mm <- sub('^(\\d+\\.\\d+).*','\\1', ci); \
+                      lk_mm <- sub('^(\\d+\\.\\d+).*','\\1', lock); \
                       cat('CI R:', ci, '\nLockfile R:', lock, '\n'); \
-                      if (ci != lk) stop(sprintf('R mismatch: CI %s vs lockfile %s', ci, lock))"
+                      if (ci_mm != lk_mm) stop(sprintf('R mismatch: CI %s vs lockfile %s', ci, lock))"
 
       - name: Bootstrap (restore + chromote)
         run: Rscript bootstrap.R
