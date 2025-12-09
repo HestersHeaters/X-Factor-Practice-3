@@ -19,6 +19,23 @@ If bootstrap flags issues, it prints ✅/❌ items with exact fixes (e.g., macOS
 
 ---
 
+## What changed at a glance (Original → Current)
+
+- **Parameterized builders**: single engine now handles *any* league/division/sheet (no hard-coded NL/AL or divisions).
+- **Menu-driven runner**: one script (`Render X Factor Update Graphics.R`) orchestrates Teams/Hitters/Pitchers, single/all divisions, and sheet selection.
+- **Deterministic session**: fixed seed/locale/timezone for identical visuals across machines.
+- **Reproducible env**: `renv.lock` + `.Rprofile` auto-activation; optional CI smoke test.
+- **Baseline integrity**: HTML hash baselines per kind/league/division (`build/baselines/`) with drift detection + write/update prompts.
+- **Robust rendering**: auto-detects `chromote`/`webshot2`, enforces timeouts, normalizes PNG to exact canvas, adds inner keyline.
+- **Offline-ready assets**: local MLB logos with URL fallback; local Quicksand font embedding (falls back to Google Fonts if needed).
+- **Cleaner visuals**: consistent headers/borders/padding; logo column labels; performance heat fills; legends; ellipsis for long names.
+- **Safer I/O**: explicit Excel inputs under `data/`; consistent outputs under `outputs/…`; helper utilities for file safety.
+- **Maintainable design**: modular functions, clearer naming, better error messages.
+
+> Want the narrative diffs? See `build/diff/INDEX.md`.
+
+---
+
 ## Project Structure
 
 ```
@@ -165,6 +182,22 @@ Optional badge (replace `OWNER/REPO`):
 - **No PNG backend:** `install.packages("chromote")` (or `webshot2`; then `webshot2::install_phantomjs()`).  
 - **Missing inputs:** place the three Excel files under `data/` with exact names (see preflight).  
 - **Baseline drift:** if intentional, update baseline; else investigate data/assets/package changes.
+
+---
+
+## Original vs Current
+
+- **Original snapshot (branch):** `Original---7.10.25`
+- **Current:** `main`
+
+**Deletions view (main → original)** — shows files the originals branch removed relative to current:  
+➡️ _paste your URL_ `https://github.com/<USER>/<REPO>/compare/main...Original---7.10.25`
+
+**Additions view (original → main)** — shows what’s been added/refactored since the original snapshot:  
+➡️ _paste your URL_ `https://github.com/<USER>/<REPO>/compare/Original---7.10.25...main`
+
+**Narrative diffs (skimmable)**  
+See `build/diff/INDEX.md` for change summaries and optional side-by-side HTML diffs.
 
 ---
 
