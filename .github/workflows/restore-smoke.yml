@@ -22,7 +22,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # OK before R is installed – only uses shell ls/pwd
+      # Works before R is installed
       - name: Debug — list repo root and data/
         run: |
           echo "PWD:" && pwd
@@ -37,7 +37,8 @@ jobs:
         id: setup-r
         uses: r-lib/actions/setup-r@v2
         with:
-          r-version: '4.3'   # match renv.lock major.minor
+          # If you know exact version in renv.lock, pin it here (e.g., 4.3.2)
+          r-version: '4.3'
 
       - name: Setup pandoc
         uses: r-lib/actions/setup-pandoc@v2
@@ -53,27 +54,29 @@ jobs:
       - name: Install renv
         run: Rscript -e "if(!requireNamespace('renv', quietly=TRUE)) install.packages('renv')"
 
-      # Now it's safe to run Rscript (R is installed)
+      # Assert your three Excel files exist (catches path/name typos)
       - name: Debug — assert Excel files exist
         run: |
-          Rscript -e 'cat("WD:", getwd(), "\n") ; fs <- c(
-            "data/Team Data - X Factor Update.xlsx",
-            "data/Hitter Data - X Factor Update.xlsx",
-            "data/Pitcher Data - X Factor Update.xlsx"
-          ); print(setNames(file.exists(fs), fs)); if (!all(file.exists(fs))) {
-            missing <- paste(fs[!file.exists(fs)], collapse = "\n  - ")
-            stop(paste("Missing expected Excel files:\n  -", missing))
-          }'
+          Rscript -e 'cat("WD:", getwd(), "\n"); \
+                      fs <- c("data/Team Data - X Factor Update.xlsx", \
+                              "data/Hitter Data - X Factor Update.xlsx", \
+                              "data/Pitcher Data - X Factor Update.xlsx"); \
+                      print(setNames(file.exists(fs), fs)); \
+                      if (!all(file.exists(fs))) { \
+                        missing <- paste(fs[!file.exists(fs)], collapse = "\n  - "); \
+                        stop(paste("Missing expected Excel files:\n  -", missing)) }'
 
+      # Safe major.minor check without regex escaping issues
       - name: Assert renv.lock R matches CI R (major.minor)
         run: |
-          Rscript -e "if(!requireNamespace('jsonlite', quietly=TRUE)) install.packages('jsonlite')"
-          Rscript -e "lock <- jsonlite::fromJSON('renv.lock')$R$Version; \
-                      ci  <- as.character(getRversion()); \
-                      ci_mm <- sub('^(\\d+\\.\\d+).*','\\1', ci); \
-                      lk_mm <- sub('^(\\d+\\.\\d+).*','\\1', lock); \
-                      cat('CI R:', ci, '\nLockfile R:', lock, '\n'); \
-                      if (ci_mm != lk_mm) stop(sprintf('R mismatch: CI %s vs lockfile %s', ci, lock))"
+          Rscript -e 'if(!requireNamespace("jsonlite", quietly=TRUE)) install.packages("jsonlite"); \
+                      j <- jsonlite::fromJSON("renv.lock"); lock <- j$R$Version; \
+                      ci <- as.character(getRversion()); \
+                      split <- function(x) strsplit(x, ".", fixed = TRUE)[[1]]; \
+                      ci_mm <- paste(split(ci)[1],  split(ci)[2],  sep = "."); \
+                      lk_mm <- paste(split(lock)[1], split(lock)[2], sep = "."); \
+                      cat("CI R:", ci, "\nLockfile R:", lock, "\n"); \
+                      if (ci_mm != lk_mm) stop(sprintf("R mismatch: CI %s vs lockfile %s", ci, lock))'
 
       - name: Bootstrap (restore + chromote)
         run: Rscript bootstrap.R
