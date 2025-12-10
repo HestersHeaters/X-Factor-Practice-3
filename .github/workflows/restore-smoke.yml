@@ -1,3 +1,4 @@
+# file: .github/workflows/restore-smoke.yml
 name: Restore & Smoke (macOS + Windows)
 
 on:
@@ -6,7 +7,7 @@ on:
 
 jobs:
   smoke:
-    name: Restore & Smoke (${{ matrix.os }})
+    name: "Restore & Smoke (${{ matrix.os }})"
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -34,7 +35,7 @@ jobs:
         id: setup-r
         uses: r-lib/actions/setup-r@v2
         with:
-          r-version: "4.3"
+          r-version: "4.3"   # or pin exact (e.g., "4.3.2")
 
       - name: Setup pandoc
         uses: r-lib/actions/setup-pandoc@v2
@@ -43,29 +44,59 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.R_LIBS_USER }}
-          key: ${{ runner.os }}-r-${{ steps.setup-r.outputs.installed-r-version }}-${{ hashFiles('renv.lock') }}
+          key: "${{ runner.os }}-r-${{ steps.setup-r.outputs.installed-r-version }}-${{ hashFiles('renv.lock') }}"
           restore-keys: |
             ${{ runner.os }}-r-${{ steps.setup-r.outputs.installed-r-version }}-
 
       - name: Install renv
-        run: Rscript -e "if(!requireNamespace('renv', quietly=TRUE)) install.packages('renv')"
+        shell: Rscript {0}
+        run: |
+          if (!requireNamespace("renv", quietly = TRUE)) install.packages("renv")
 
       - name: Assert Excel files exist
-        run: Rscript -e "cat('WD:', getwd(), '\n'); fs <- c('data/Team Data - X Factor Update.xlsx','data/Hitter Data - X Factor Update.xlsx','data/Pitcher Data - X Factor Update.xlsx'); print(setNames(file.exists(fs), fs)); if (!all(file.exists(fs))) { missing <- paste(fs[!file.exists(fs)], collapse = '\n  - '); stop(paste('Missing expected Excel files:\n  -', missing)) }"
+        shell: Rscript {0}
+        run: |
+          cat("WD:", getwd(), "\n")
+          fs <- c(
+            "data/Team Data - X Factor Update.xlsx",
+            "data/Hitter Data - X Factor Update.xlsx",
+            "data/Pitcher Data - X Factor Update.xlsx"
+          )
+          print(setNames(file.exists(fs), fs))
+          if (!all(file.exists(fs))) {
+            missing <- paste(fs[!file.exists(fs)], collapse = "\n  - ")
+            stop(paste("Missing expected Excel files:\n  -", missing))
+          }
 
       - name: Assert renv.lock R matches CI R (major.minor)
-        run: Rscript -e "if(!requireNamespace('jsonlite', quietly=TRUE)) install.packages('jsonlite'); j <- jsonlite::fromJSON('renv.lock'); lock <- j$R$Version; ci <- as.character(getRversion()); split <- function(x) strsplit(x, '.', fixed = TRUE)[[1]]; ci_mm <- paste(split(ci)[1], split(ci)[2], sep = '.'); lk_mm <- paste(split(lock)[1], split(lock)[2], sep = '.'); cat('CI R:', ci, '\nLockfile R:', lock, '\n'); if (ci_mm != lk_mm) stop(sprintf('R mismatch: CI %s vs lockfile %s', ci, lock))"
+        shell: Rscript {0}
+        run: |
+          if (!requireNamespace("jsonlite", quietly = TRUE)) install.packages("jsonlite")
+          lock <- jsonlite::fromJSON("renv.lock")$R$Version
+          ci <- as.character(getRversion())
+          split <- function(x) strsplit(x, ".", fixed = TRUE)[[1]]
+          ci_mm <- paste(split(ci)[1], split(ci)[2], sep = ".")
+          lk_mm <- paste(split(lock)[1], split(lock)[2], sep = ".")
+          cat("CI R:", ci, "\nLockfile R:", lock, "\n")
+          if (ci_mm != lk_mm) stop(sprintf("R mismatch: CI %s vs lockfile %s", ci, lock))
 
-      - name: Bootstrap
-        run: Rscript bootstrap.R
+      - name: Bootstrap (restore packages, ensure chromote/webshot2)
+        shell: Rscript {0}
+        run: |
+          source("bootstrap.R")
 
       - name: Session info
-        run: Rscript -e "sessionInfo()"
+        shell: Rscript {0}
+        run: |
+          sessionInfo()
 
       - name: Preflight
-        run: Rscript preflight.R
+        shell: Rscript {0}
+        run: |
+          source("preflight.R")
 
       - name: Parse scripts
+        shell: Rscript {0}
         run: |
-          Rscript -e "tools::parse_R('Create X Factor Update Graphics.R')"
-          Rscript -e "tools::parse_R('Render X Factor Update Graphics.R')"
+          tools::parse_R("Create X Factor Update Graphics.R")
+          tools::parse_R("Render X Factor Update Graphics.R")
