@@ -95,8 +95,10 @@ jobs:
         run: |
           source("preflight.R")
 
-      - name: Parse scripts
+      - name: Parse scripts (syntax check)
         shell: Rscript {0}
         run: |
-          tools::parse_R("Create X Factor Update Graphics.R")
-          tools::parse_R("Render X Factor Update Graphics.R")
+          parse(file = "Create X Factor Update Graphics.R")
+          parse(file = "Render X Factor Update Graphics.R")
+          cat("✅ Parsed both scripts without syntax errors.\n")
+
