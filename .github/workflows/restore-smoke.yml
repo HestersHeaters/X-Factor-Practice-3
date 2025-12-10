@@ -22,7 +22,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Cross-platform listing using PowerShell Core (pwsh) works on macOS + Windows
       - name: List repo root and data
         shell: pwsh
         run: |
@@ -35,20 +34,20 @@ jobs:
         id: setup-r
         uses: r-lib/actions/setup-r@v2
         with:
-          r-version: "4.3"       # pin major.minor from your lockfile
-          use-rtools: true       # needed on windows for source packages
+          r-version: "4.3"                 # or exact, e.g. "4.3.2"
+          use-public-rspm: true            # <-- move here (valid)
+          windows-path-include-rtools: true
+          rtools-version: "42"             # for R 4.3 on Windows
 
       - name: Setup pandoc
         uses: r-lib/actions/setup-pandoc@v2
 
-      # Use setup-renv to restore with caching + RSPM binaries on both OSes
+      # Package restore via setup-renv (no unsupported inputs)
       - name: Setup renv (restore packages)
         uses: r-lib/actions/setup-renv@v2
         with:
           cache-version: 2
-          use-public-rspm: true
 
-      # Assert Excel files exist (Rscript shell avoids quoting issues)
       - name: Assert Excel files exist
         shell: Rscript {0}
         run: |
@@ -64,7 +63,6 @@ jobs:
             stop(paste("Missing expected Excel files:\n  -", missing))
           }
 
-      # Safe major.minor check (no regex escaping)
       - name: Assert renv.lock R matches CI R (major.minor)
         shell: Rscript {0}
         run: |
@@ -77,7 +75,6 @@ jobs:
           cat("CI R:", ci, "\nLockfile R:", lock, "\n")
           if (ci_mm != lk_mm) stop(sprintf("R mismatch: CI %s vs lockfile %s", ci, lock))
 
-      # Your bootstrap can still do any extra checks (chromote/webshot2, etc.)
       - name: Bootstrap (post-restore)
         shell: Rscript {0}
         run: |
