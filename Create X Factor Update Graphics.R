@@ -61,22 +61,25 @@ ensure_parent_dir <- function(path) {
 # ---------------------- Baseline (HTML hash) -------------------------
 compute_sha256 <- function(path) digest::digest(file = path, algo = "sha256")
 
-write_baseline <- function(rendered_html, baseline_path) {
+# Hash any file (PNG/HTML/etc.)
+write_baseline_file <- function(target_path, baseline_path) {
   dir.create(dirname(baseline_path), recursive = TRUE, showWarnings = FALSE)
-  sha <- compute_sha256(rendered_html)
+  sha <- compute_sha256(target_path)
   writeLines(sha, baseline_path)
   invisible(sha)
 }
 
-maybe_check_baseline <- function(rendered_html, baseline_path) {
+maybe_check_baseline_file <- function(target_path, baseline_path) {
   if (is.na(baseline_path)) return(invisible(TRUE))
   if (!file.exists(baseline_path)) {
-    write_baseline(rendered_html, baseline_path)
+    write_baseline_file(target_path, baseline_path)
     return(invisible(TRUE))
   }
-  cur <- compute_sha256(rendered_html)
+  cur  <- compute_sha256(target_path)
   base <- readLines(baseline_path, warn = FALSE)
-  if (!identical(cur, base)) stop("❌ Drift detected vs baseline. Re-run write_baseline() if intentional.")
+  if (!identical(cur, base)) {
+    stop("❌ Drift detected vs baseline. Re-run write_baseline_file() if intentional.")
+  }
   invisible(TRUE)
 }
 
@@ -682,20 +685,21 @@ run_with_excel <- function(input_xlsx,
     target_w <- 1366; target_h <- 954
   } else stop("Unknown kind.")
   
+  # Save HTML (for inspection) and PNG (for publishing)
   gt::gtsave(tbl, filename = output_html)
   ensure_png_backend()
   R.utils::withTimeout({
     gt::gtsave(tbl, filename = output_png)
   }, timeout = 60, onTimeout = "error")
   
+  # Normalize canvas & add keyline (keeps pixels deterministic)
   normalize_png(in_path = output_png, out_path = output_png,
                 target_w = target_w, target_h = target_h,
                 gravity = "north", color = "white",
                 trim_white = TRUE, trim_fuzz = "3%", preserve_edges = TRUE)
   add_inner_keyline(output_png, color = "black", lwd = 1)
   
-  if (!is.na(baseline)) maybe_check_baseline(output_html, baseline)
-  
+  # Always show success paths even if a later baseline check fails
   backend <- detect_png_backend()
   kind_name <- tools::toTitleCase(if (tolower(kind) == "teams") "teams" else kind)
   message(sprintf("✅ Done [%s].\n  PNG:  %s\n  HTML: %s\n  Backend: %s",
@@ -703,5 +707,11 @@ run_with_excel <- function(input_xlsx,
                   normalizePath(output_png,  FALSE),
                   normalizePath(output_html, FALSE),
                   backend))
+  
+  # Baseline on PNG (robust across HTML differences like font-loading)
+  if (!is.na(baseline)) {
+    maybe_check_baseline_file(output_png, baseline)
+  }
+  
   invisible(tbl)
 }
