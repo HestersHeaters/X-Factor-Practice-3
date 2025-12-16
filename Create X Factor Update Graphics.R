@@ -32,60 +32,62 @@ deterministic_session <- function() {
 }
 
 # ----------------------------- Backend --------------------------------
-find_chrome_ok <- function() {
-  ok <- tryCatch({
-    p <- getOption("chromote.chrome.path", NULL)
-    if (!is.null(p) && nzchar(p) && file.exists(p)) return(TRUE)
-    !is.null(tryCatch(chromote::find_chrome(), error = function(e) NULL))
-  }, error = function(e) FALSE)
-  ok
-}
-
 ensure_png_backend <- function() {
-  prefer <- getOption("xfactor.backend", NA_character_)  # "chromote" | "webshot2" | NA
-  has_chromote <- requireNamespace("chromote", quietly = TRUE) && find_chrome_ok()
-  has_webshot2 <- requireNamespace("webshot2", quietly = TRUE)
-  
-  pick <- NA_character_
-  if (!is.na(prefer)) {
-    if (identical(prefer, "chromote") && has_chromote) pick <- "chromote"
-    if (identical(prefer, "webshot2") && has_webshot2) pick <- "webshot2"
+  # Prefer webshot2 + chromote + Chrome
+  if (requireNamespace("webshot2", quietly = TRUE) &&
+      requireNamespace("chromote", quietly = TRUE) &&
+      isTRUE(tryCatch(!is.null(chromote::find_chrome()), error = function(e) FALSE))) {
+    return(invisible("webshot2+chromote"))
   }
-  if (is.na(pick)) pick <- if (has_chromote) "chromote" else if (has_webshot2) "webshot2" else NA_character_
-  
-  if (is.na(pick)) stop(paste(
-    "PNG export requires either:",
-    "  - chromote + Google Chrome/Chromium, or",
-    "  - webshot2 + PhantomJS",
-    "Install one of:",
-    "  install.packages('chromote')  # and install Chrome",
-    "  # or",
-    "  install.packages('webshot2'); webshot2::install_phantomjs()",
+  # Legacy fallback only if installed
+  if (requireNamespace("webshot", quietly = TRUE) && nzchar(Sys.which("phantomjs"))) {
+    return(invisible("webshot+phantomjs"))
+  }
+  stop(paste(
+    "PNG export needs either:",
+    "  • webshot2 + chromote + Chrome/Chromium (recommended), or",
+    "  • webshot + PhantomJS (legacy).",
+    "Fix: renv::install(c('webshot2','chromote')); then install Google Chrome.",
     sep = "\n"
   ))
-  
-  if (identical(pick, "webshot2")) {
-    # ensure PhantomJS is present
-    try(webshot2::install_phantomjs(), silent = TRUE)
-    if (!nzchar(Sys.which("phantomjs")))
-      stop("webshot2 present but PhantomJS is missing; run webshot2::install_phantomjs()")
-  }
-  invisible(pick)
 }
 
 detect_png_backend <- function() {
-  prefer <- getOption("xfactor.backend", NA_character_)
-  if (!is.na(prefer)) return(prefer)
-  if (requireNamespace("chromote", quietly = TRUE) && find_chrome_ok()) return("chromote")
-  if (requireNamespace("webshot2", quietly = TRUE) && nzchar(Sys.which("phantomjs"))) return("webshot2")
-  "none"
+  if (requireNamespace("webshot2", quietly = TRUE) &&
+      requireNamespace("chromote", quietly = TRUE) &&
+      isTRUE(tryCatch(!is.null(chromote::find_chrome()), error = function(e) FALSE))) {
+    "webshot2+chromote"
+  } else if (requireNamespace("webshot", quietly = TRUE) && nzchar(Sys.which("phantomjs"))) {
+    "webshot+phantomjs"
+  } else "none"
 }
-
 
 # ------------------------- File System Utils -------------------------
 ensure_parent_dir <- function(path) {
   dir <- dirname(path)
   if (!dir.exists(dir)) dir.create(dir, recursive = TRUE, showWarnings = FALSE)
+}
+
+# ---------------------- Baseline (HTML hash) -------------------------
+compute_sha256 <- function(path) digest::digest(file = path, algo = "sha256")
+
+write_html_baseline <- function(rendered_html, baseline_path) {
+  dir.create(dirname(baseline_path), recursive = TRUE, showWarnings = FALSE)
+  sha <- compute_sha256(rendered_html)
+  writeLines(sha, baseline_path)
+  invisible(sha)
+}
+
+maybe_check_html_baseline <- function(rendered_html, baseline_path) {
+  if (is.na(baseline_path)) return(invisible(TRUE))
+  if (!file.exists(baseline_path)) {
+    write_html_baseline(rendered_html, baseline_path)  # first run auto-init
+    return(invisible(TRUE))
+  }
+  cur  <- compute_sha256(rendered_html)
+  base <- readLines(baseline_path, warn = FALSE)
+  if (!identical(cur, base)) stop("❌ Drift detected vs baseline. Re-run write_html_baseline() if intentional.")
+  invisible(TRUE)
 }
 
 # ---------------------- Baseline (PNG hash) --------------------------
@@ -733,10 +735,16 @@ run_with_excel <- function(input_xlsx,
                   normalizePath(output_html, FALSE),
                   backend))
   
-  # Baseline on PNG (robust across HTML differences like font-loading)
-  if (!is.na(baseline)) {
-    maybe_check_baseline_file(output_png, baseline)
-  }
+  # after: gtsave HTML, gtsave PNG, normalize_png(...), add_inner_keyline(...)
+  if (!is.na(baseline)) maybe_check_html_baseline(output_html, baseline)
+  
+  backend <- detect_png_backend()
+  kind_name <- tools::toTitleCase(if (tolower(kind) == "teams") "teams" else kind)
+  message(sprintf("✅ Done [%s].\n  PNG:  %s\n  HTML: %s\n  Backend: %s",
+                  kind_name,
+                  normalizePath(output_png,  FALSE),
+                  normalizePath(output_html, FALSE),
+                  backend))
   
   invisible(tbl)
 }
