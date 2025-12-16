@@ -5,16 +5,16 @@
 #   - ALWAYS prompts for sheet selection
 #   - Filenames: "<LG> <DIV> <Kind> <Sheet Name>"
 #   - Per-sheet subfolders under outputs/<kind>/
-#   - Baseline enforce/write prompts (PNG-based, per-sheet)
+#   - Baseline enforce/write prompts (PNG-based, per sheet)
 #   - ALL mode (all kinds × all 6 divisions)
 # =====================================================================
 
-# --- Load renv and the main creation script ---------------------------
+# --- Load renv and the main creation script (why: ensure same env + helpers) ---
 if (file.exists("renv/activate.R")) source("renv/activate.R", local = TRUE)
 
 main_candidates <- c(
-  "Create X Factor Update Graphics.R",     # root (your current location)
-  "R/Create X Factor Update Graphics.R"    # optional alternative
+  "Create X Factor Update Graphics.R",
+  "R/Create X Factor Update Graphics.R"
 )
 
 loaded <- FALSE
@@ -43,7 +43,7 @@ ensure_dir <- function(p) if (!dir.exists(p)) dir.create(p, recursive = TRUE, sh
 
 ask_yesno <- function(title) {
   i <- menu(c("Yes","No"), title = title)
-  if (i == 0) stop("Cancelled.")
+  if (i == 0) stop("Cancelled.")  # why: keep deterministic control-flow
   i == 1
 }
 
@@ -53,9 +53,9 @@ detect_png_backend <- function() {
   else "none"
 }
 
-`%||%` <- function(a,b) if (!is.null(a)) a else b
+`%||%` <- function(a,b) if (!is.null(a)) a else b  # why: robust defaulting
 
-# Safe path component (keep spaces; strip slashes/colons/control chars)
+# Safe path component (keep spaces; strip slashes/colons/control chars; trim)
 safe_component <- function(x) {
   x <- gsub("[/\\\\:]+", "-", x)
   x <- gsub("[[:cntrl:]]+", "", x)
@@ -71,15 +71,6 @@ baseline_path_for <- function(league, division, kind, sheet) {
                     k, toupper(league), toupper(division), safe_component(sheet)))
 }
 
-# Friendly noun for filenames/folders
-kind_noun <- function(kind) {
-  k <- tolower(kind)
-  if (k %in% c("teams","standings")) "Team"
-  else if (k == "hitters") "Hitters"
-  else if (k == "pitchers") "Pitchers"
-  else tools::toTitleCase(k)
-}
-
 # Prompt to select a sheet EVERY time (by design)
 pick_sheet_for <- function(xlsx, title = "Select a sheet:") {
   sheets <- readxl::excel_sheets(xlsx)
@@ -90,8 +81,16 @@ pick_sheet_for <- function(xlsx, title = "Select a sheet:") {
   sheets[idx]
 }
 
+# Friendly noun for filenames/folders
+kind_noun <- function(kind) {
+  k <- tolower(kind)
+  if (k %in% c("teams","standings")) "Team"
+  else if (k == "hitters") "Hitters"
+  else if (k == "pitchers") "Pitchers"
+  else tools::toTitleCase(k)
+}
+
 # ----------------------- Workbook defaults (repo) --------------------
-# ALWAYS use repo-local files in data/; if missing, ask to pick once.
 default_workbook_for <- function(kind) {
   root <- "data"  # repo-relative
   k <- tolower(kind)
@@ -111,8 +110,8 @@ resolve_workbook_for <- function(kind) {
   p
 }
 
-# Ensure standard dirs exist
-ensure_dir("build"); ensure_dir("outputs"); ensure_dir("build/drift"); ensure_dir(file.path("build","baselines"))
+# Ensure standard dirs exist (why: avoid errors on first run / clean clones)
+ensure_dir("build"); ensure_dir("outputs"); ensure_dir(file.path("build","drift")); ensure_dir(file.path("build","baselines"))
 
 # ------------------------------- Menu --------------------------------
 kind_idx <- menu(c("Teams","Hitters","Pitchers","ALL"), title = "Select table type:")
@@ -151,7 +150,7 @@ if (scope == 1) {
     out_png  <- file.path(folder, paste0(file_stub_safe, ".png"))
     out_html <- file.path(folder, paste0(file_stub_safe, ".html"))
     
-    # per kind/LG/DIV/**SHEET** (PNG-hash baseline)
+    # Per kind/LG/DIV/**SHEET** (PNG-hash baseline)
     bfile    <- baseline_path_for(lg, dv, kind, sheet_choice)
     use_base <- file.exists(bfile) && ask_yesno(sprintf("Enforce baseline for %s [%s / %s]? (%s)", kind, tag, sheet_choice, bfile))
     
@@ -210,8 +209,7 @@ if (scope == 1) {
       out_png  <- file.path(folder, paste0(file_stub_safe, ".png"))
       out_html <- file.path(folder, paste0(file_stub_safe, ".html"))
       
-      # per kind/LG/DIV/**SHEET**
-      bfile    <- baseline_path_for(lg, dv, kind, sheet_choice)
+      bfile    <- baseline_path_for(lg, dv, kind, sheet_choice)  # per-sheet
       use_base <- enforce_all && file.exists(bfile)
       
       status <- "ok"; note <- NA_character_
