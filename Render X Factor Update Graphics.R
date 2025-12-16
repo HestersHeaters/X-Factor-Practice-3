@@ -1,15 +1,10 @@
 # =====================================================================
 # File: Render X Factor Update Graphics.R
-# Purpose: One-click runner for Teams/Hitters/Pitchers
-#   - Uses repo-local workbooks: data/*.xlsx (no file picker)
-#   - ALWAYS prompts for sheet selection
-#   - Filenames: "<LG> <DIV> <Kind> <Sheet Name>"
-#   - Per-sheet subfolders under outputs/<kind>/
-#   - Baseline enforce/write prompts (PNG-based, per sheet)
-#   - ALL mode (all kinds × all 6 divisions)
+# Purpose: One-click runner for Teams/Hitters/Pitchers with HTML baselines
+#          (per-sheet, stored in build/baselines/)
 # =====================================================================
 
-# --- Load renv and the main creation script (why: ensure same env + helpers) ---
+# --- Load renv and the main creation script ---------------------------
 if (file.exists("renv/activate.R")) source("renv/activate.R", local = TRUE)
 
 main_candidates <- c(
@@ -43,32 +38,35 @@ ensure_dir <- function(p) if (!dir.exists(p)) dir.create(p, recursive = TRUE, sh
 
 ask_yesno <- function(title) {
   i <- menu(c("Yes","No"), title = title)
-  if (i == 0) stop("Cancelled.")  # why: keep deterministic control-flow
+  if (i == 0) stop("Cancelled.")
   i == 1
 }
 
 detect_png_backend <- function() {
-  if (requireNamespace("chromote", quietly = TRUE)) "chromote"
-  else if (requireNamespace("webshot2", quietly = TRUE)) "webshot2"
-  else "none"
+  # informational only
+  if (requireNamespace("chromote", quietly = TRUE)) {
+    ch <- tryCatch(chromote::find_chrome(), error = function(e) NULL)
+    if (!is.null(ch)) return("chromote")
+  }
+  if (requireNamespace("webshot2", quietly = TRUE) && nzchar(Sys.which("phantomjs"))) return("webshot2")
+  if (requireNamespace("webshot2", quietly = TRUE)) return("webshot2(no phantomjs)")
+  "none"
 }
 
-`%||%` <- function(a,b) if (!is.null(a)) a else b  # why: robust defaulting
+# Friendly noun for filenames/folders
+kind_noun <- function(kind) {
+  k <- tolower(kind)
+  if (k %in% c("teams","standings")) "Team"
+  else if (k == "hitters") "Hitters"
+  else if (k == "pitchers") "Pitchers"
+  else tools::toTitleCase(k)
+}
 
-# Safe path component (keep spaces; strip slashes/colons/control chars; trim)
+# Safe path component (keep spaces; strip slashes/colons/control chars)
 safe_component <- function(x) {
   x <- gsub("[/\\\\:]+", "-", x)
   x <- gsub("[[:cntrl:]]+", "", x)
   trimws(x)
-}
-
-# Baseline file path per kind/league/division **and sheet** (PNG hash)
-baseline_path_for <- function(league, division, kind, sheet) {
-  k <- tolower(kind)
-  if (k == "standings") k <- "teams"
-  file.path("build", "baselines",
-            sprintf("baseline_%s_%s_%s_%s.txt",
-                    k, toupper(league), toupper(division), safe_component(sheet)))
 }
 
 # Prompt to select a sheet EVERY time (by design)
@@ -81,18 +79,9 @@ pick_sheet_for <- function(xlsx, title = "Select a sheet:") {
   sheets[idx]
 }
 
-# Friendly noun for filenames/folders
-kind_noun <- function(kind) {
-  k <- tolower(kind)
-  if (k %in% c("teams","standings")) "Team"
-  else if (k == "hitters") "Hitters"
-  else if (k == "pitchers") "Pitchers"
-  else tools::toTitleCase(k)
-}
-
 # ----------------------- Workbook defaults (repo) --------------------
 default_workbook_for <- function(kind) {
-  root <- "data"  # repo-relative
+  root <- "data"
   k <- tolower(kind)
   if (k == "teams")    return(file.path(root, "Team Data - X Factor Update.xlsx"))
   if (k == "hitters")  return(file.path(root, "Hitter Data - X Factor Update.xlsx"))
@@ -109,9 +98,53 @@ resolve_workbook_for <- function(kind) {
   if (!file.exists(p)) stop("Selected Excel file does not exist.")
   p
 }
+`%||%` <- function(a,b) if (!is.null(a)) a else b
 
-# Ensure standard dirs exist (why: avoid errors on first run / clean clones)
-ensure_dir("build"); ensure_dir("outputs"); ensure_dir(file.path("build","drift")); ensure_dir(file.path("build","baselines"))
+# ----------------------- Baseline (per sheet, HTML) -------------------
+baseline_path_for <- function(league, division, kind, sheet) {
+  k <- tolower(kind)
+  if (k == "standings") k <- "teams"
+  file.path("build", "baselines",
+            sprintf("baseline_%s_%s_%s_%s.txt",
+                    k, toupper(league), toupper(division), safe_component(sheet)))
+}
+
+# One-time migration (old flat baselines -> build/baselines/)
+migrate_old_baselines_flat <- function(build_dir = "build") {
+  src <- build_dir
+  dst <- file.path(build_dir, "baselines")
+  ensure_dir(dst)
+  if (!dir.exists(src)) return(invisible(FALSE))
+  olds <- list.files(src, pattern = "^baseline_.*\\.txt$", full.names = TRUE)
+  if (!length(olds)) return(invisible(FALSE))
+  moved <- 0L
+  for (f in olds) {
+    base <- basename(f)
+    tgt  <- file.path(dst, base)
+    if (!file.exists(tgt)) {
+      file.rename(f, tgt)
+      moved <- moved + 1L
+    }
+  }
+  if (moved) message(sprintf("↪ Migrated %d baseline file(s) to %s", moved, dst))
+  invisible(TRUE)
+}
+
+# Local HTML baseline writer if Create didn't define one
+if (!exists("write_html_baseline", mode = "function")) {
+  compute_sha256 <- function(path) digest::digest(file = path, algo = "sha256")
+  write_html_baseline <- function(rendered_html, baseline_path) {
+    dir.create(dirname(baseline_path), recursive = TRUE, showWarnings = FALSE)
+    sha <- compute_sha256(rendered_html)
+    writeLines(sha, baseline_path)
+    invisible(sha)
+  }
+}
+
+# Ensure standard dirs exist + migrate old baselines once
+ensure_dir("build"); ensure_dir("outputs"); ensure_dir("build/drift")
+ensure_dir(file.path("build","baselines"))
+migrate_old_baselines_flat("build")
 
 # ------------------------------- Menu --------------------------------
 kind_idx <- menu(c("Teams","Hitters","Pitchers","ALL"), title = "Select table type:")
@@ -120,8 +153,7 @@ kinds <- switch(kind_idx,
                 c("teams"),
                 c("hitters"),
                 c("pitchers"),
-                c("teams","hitters","pitchers")  # ALL
-)
+                c("teams","hitters","pitchers"))
 
 scope <- menu(c("Single division", "All six divisions"), title = "Render scope:")
 if (scope < 1) stop("No scope selected.")
@@ -140,19 +172,19 @@ if (scope == 1) {
     xlsx <- resolve_workbook_for(kind)
     sheet_choice <- pick_sheet_for(xlsx, sprintf("Select a sheet for %s:", kind))
     
-    noun   <- kind_noun(kind)                                        # "Team" | "Hitters" | "Pitchers"
+    noun   <- kind_noun(kind)
     folder <- file.path("outputs", tolower(kind), paste(noun, sheet_choice))
     ensure_dir(folder)
     
-    file_stub <- sprintf("%s %s %s %s", lg, dv, noun, sheet_choice)  # "AL W Team End of Season 2025"
+    file_stub <- sprintf("%s %s %s %s", lg, dv, noun, sheet_choice)
     file_stub_safe <- safe_component(file_stub)
     
     out_png  <- file.path(folder, paste0(file_stub_safe, ".png"))
     out_html <- file.path(folder, paste0(file_stub_safe, ".html"))
     
-    # Per kind/LG/DIV/**SHEET** (PNG-hash baseline)
-    bfile    <- baseline_path_for(lg, dv, kind, sheet_choice)
-    use_base <- file.exists(bfile) && ask_yesno(sprintf("Enforce baseline for %s [%s / %s]? (%s)", kind, tag, sheet_choice, bfile))
+    bfile    <- baseline_path_for(lg, dv, kind, sheet_choice)  # per kind/LG/DIV/SHEET
+    use_base <- file.exists(bfile) && ask_yesno(
+      sprintf("Enforce baseline for %s [%s]? (%s)", kind, tag, bfile))
     
     run_with_excel(
       input_xlsx  = xlsx,
@@ -165,8 +197,8 @@ if (scope == 1) {
       baseline    = if (use_base) bfile else NA_character_
     )
     
-    wrote <- ask_yesno(sprintf("Write/Update baseline for %s [%s / %s] now?", kind, tag, sheet_choice))
-    if (wrote) write_baseline_file(out_png, bfile)  # PNG baseline
+    wrote <- ask_yesno(sprintf("Write/Update baseline for %s [%s] now?", kind, tag))
+    if (wrote) write_html_baseline(out_html, bfile)
     
     results[[length(results)+1L]] <- data.frame(
       kind = kind, league = lg, division = dv,
@@ -209,7 +241,7 @@ if (scope == 1) {
       out_png  <- file.path(folder, paste0(file_stub_safe, ".png"))
       out_html <- file.path(folder, paste0(file_stub_safe, ".html"))
       
-      bfile    <- baseline_path_for(lg, dv, kind, sheet_choice)  # per-sheet
+      bfile    <- baseline_path_for(lg, dv, kind, sheet_choice)
       use_base <- enforce_all && file.exists(bfile)
       
       status <- "ok"; note <- NA_character_
@@ -225,8 +257,12 @@ if (scope == 1) {
           baseline    = if (use_base) bfile else NA_character_
         )
       }, silent = TRUE)
-      if (inherits(res_try, "try-error")) { status <- "drift_or_error"; note <- as.character(res_try) }
-      else if (write_all) write_baseline_file(out_png, bfile)  # PNG baseline
+      
+      if (inherits(res_try, "try-error")) {
+        status <- "drift_or_error"; note <- as.character(res_try)
+      } else if (write_all) {
+        write_html_baseline(out_html, bfile)
+      }
       
       results[[length(results)+1L]] <- data.frame(
         kind = kind, league = lg, division = dv,
