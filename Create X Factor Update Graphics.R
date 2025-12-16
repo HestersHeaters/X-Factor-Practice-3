@@ -58,40 +58,33 @@ ensure_parent_dir <- function(path) {
   if (!dir.exists(dir)) dir.create(dir, recursive = TRUE, showWarnings = FALSE)
 }
 
-# ---------------------- Baseline (HTML hash) -------------------------
-compute_sha256 <- function(path) digest::digest(file = path, algo = "sha256")
+# ---------------------- Baseline (PNG hash) --------------------------
+compute_sha256_file <- function(path) digest::digest(file = path, algo = "sha256")
 
-# Hash any file (PNG/HTML/etc.)
-write_baseline_file <- function(target_path, baseline_path) {
+write_baseline_file <- function(rendered_png, baseline_path) {
   dir.create(dirname(baseline_path), recursive = TRUE, showWarnings = FALSE)
-  sha <- compute_sha256(target_path)
+  sha <- compute_sha256_file(rendered_png)
   writeLines(sha, baseline_path)
   invisible(sha)
 }
 
-maybe_check_baseline_file <- function(target_path, baseline_path) {
+maybe_check_baseline_file <- function(rendered_png, baseline_path) {
   if (is.na(baseline_path)) return(invisible(TRUE))
   if (!file.exists(baseline_path)) {
-    write_baseline_file(target_path, baseline_path)
+    # First run: auto-initialize to current PNG
+    write_baseline_file(rendered_png, baseline_path)
     return(invisible(TRUE))
   }
-  cur  <- compute_sha256(target_path)
+  cur  <- compute_sha256_file(rendered_png)
   base <- readLines(baseline_path, warn = FALSE)
-  if (!identical(cur, base)) {
-    stop("❌ Drift detected vs baseline. Re-run write_baseline_file() if intentional.")
-  }
+  if (!identical(cur, base)) stop("❌ Drift detected vs baseline. Re-run write_baseline_file() if intentional.")
   invisible(TRUE)
 }
 
 # ----------------------- Image Post-Processing -----------------------
-normalize_png <- function(in_path,
-                          out_path,
-                          target_w,
-                          target_h,
-                          gravity  = "north",
-                          color    = "white",
-                          trim_white = TRUE,
-                          trim_fuzz  = "3%",
+normalize_png <- function(in_path, out_path, target_w, target_h,
+                          gravity = "north", color = "white",
+                          trim_white = TRUE, trim_fuzz = "3%",
                           preserve_edges = TRUE) {
   img <- image_read(in_path)
   img <- image_background(img, color = color, flatten = TRUE)
@@ -102,18 +95,20 @@ normalize_png <- function(in_path,
   new_w <- max(1L, as.integer(round(w * s)))
   new_h <- max(1L, as.integer(round(h * s)))
   img_out <- image_resize(
-    img,
-    paste0(new_w, "x", new_h, "!"),
+    img, paste0(new_w, "x", new_h, "!"),
     filter = if (preserve_edges) "point" else NULL
   ) |>
-    image_extent(paste0(target_w, "x", target_h), gravity = gravity, color = color)
+    image_extent(paste0(target_w, "x", target_h), gravity = gravity, color = color) |>
+    image_strip()  # <-- remove metadata to make bytes stable
   image_write(img_out, out_path)
 }
+
 
 add_inner_keyline <- function(path, color = "black", lwd = 1) {
   img <- image_read(path)
   w <- image_info(img)$width; h <- image_info(img)$height
   d <- image_draw(img); rect(0, 0, w - 1, h - 1, border = color, lwd = lwd); dev.off()
+  d <- image_strip(d)  # <-- strip metadata
   image_write(d, path)
 }
 
