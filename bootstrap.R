@@ -1,102 +1,75 @@
 # =====================================================================
 # File: bootstrap.R  (repo root)
-# Purpose: Self-contained first-run: renv boot → restore → PNG backend → preflight
+# Purpose: One-click setup for this project on any machine.
+# - Uses CRAN binaries when possible
+# - Forces webshot2 + PhantomJS renderer (stable across machines)
+# - Restores renv library
+# - Runs preflight at the end
 # =====================================================================
 
-message("▶ Bootstrapping …")
+message("▶ Bootstrapping project …")
 
-# tiny helper used a few times
-`%||%` <- function(a,b) if (!is.null(a)) a else b
+# 1) Set a CRAN mirror if none is configured (some R installs have @CRAN@)
+repos <- getOption("repos")
+if (is.null(repos) || isTRUE(is.na(repos)) || identical(repos, c(CRAN = "@CRAN@"))) {
+  options(repos = c(CRAN = "https://cloud.r-project.org"))
+}
 
-# Stable repos + prefer binaries on macOS/Windows
-options(
-  repos = c(CRAN = "https://packagemanager.posit.co/cran/2024-12-01"),
-  pkgType = if (tolower(Sys.info()[["sysname"]]) %in% c("darwin","windows")) "binary" else getOption("pkgType","source"),
-  install.packages.check.source = "no",
-  download.file.method = "libcurl",
-  timeout = 900
-)
-Sys.setenv(
-  RENV_CONFIG_PAK_ENABLED = "FALSE",
-  RENV_CONFIG_PROMPT = "FALSE",
-  RENV_CONFIG_REPOS_OVERRIDE = "https://packagemanager.posit.co/cran/2024-12-01",
-  RENV_CONFIG_INSTALL_FROM_BINARY = "TRUE",
-  RENV_DOWNLOAD_METHOD = "curl"
-)
+# 2) Prefer binaries on macOS/Windows (avoids compiling from source)
+sys <- tolower(Sys.info()[["sysname"]])
+if (sys %in% c("darwin", "windows")) options(pkgType = "binary")
 
-# Load vendored renv if present; else install and activate
+# 3) Ensure renv is available and activate this project
 if (file.exists("renv/activate.R")) {
-  source("renv/activate.R")  # prefers renv/renv-*/ if vendored
+  # Vendored renv (preferred for reproducibility)
+  source("renv/activate.R")
 } else {
   if (!requireNamespace("renv", quietly = TRUE)) install.packages("renv")
   renv::activate(".")
 }
 
-# macOS CLT heads-up (why: compilers if source fallback happens)
-if (tolower(Sys.info()[["sysname"]]) == "darwin") {
+# 4) Prefer modern renderer: webshot2 + chromote + Chrome
+if (!requireNamespace("webshot2", quietly = TRUE)) renv::install("webshot2")
+if (!requireNamespace("chromote", quietly = TRUE)) renv::install("chromote")
+
+# Sanity check for Chrome
+has_chrome <- tryCatch(!is.null(chromote::find_chrome()), error = function(e) FALSE)
+if (!has_chrome) {
+  message("ℹ️ Chrome/Chromium not detected. Install Google Chrome, then re-run bootstrap.")
+}
+
+# DO NOT hard-stop on PhantomJS anymore
+# Legacy fallback (optional): webshot + PhantomJS
+if (!requireNamespace("webshot", quietly = TRUE)) {
+  # only used if you later want PhantomJS; NOT required
+  # renv::install("webshot"); webshot::install_phantomjs()
+}
+
+
+# 5) macOS CLT heads-up (source builds may require CLT)
+if (identical(sys, "darwin")) {
   has_clt <- tryCatch({
     p <- suppressWarnings(system("xcode-select -p", intern = TRUE))
     is.character(p) && length(p) >= 1 && nzchar(p[1])
   }, error = function(e) FALSE)
-  if (!has_clt) message("ℹ️ macOS: install Command Line Tools: xcode-select --install")
+  if (!has_clt) message("ℹ️ macOS: Command Line Tools not detected. If any source builds fail, run: xcode-select --install")
 }
 
-# in bootstrap.R, BEFORE renv::restore()
-`%||%` <- function(a,b) if (!is.null(a)) a else b
-
-lock_v8_version <- function() {
-  if (!file.exists("renv.lock")) return(NULL)
-  tryCatch(jsonlite::fromJSON("renv.lock")$Packages$V8$Version, error = function(e) NULL)
-}
-
-ensure_v8 <- function(ver = lock_v8_version()) {
-  if (is.null(ver)) return(invisible(TRUE))
-  if (requireNamespace("V8", quietly = TRUE) &&
-      as.character(utils::packageVersion("V8")) == ver) return(invisible(TRUE))
-  op <- getOption("repos"); old <- getOption("pkgType")
-  options(repos = c(jeroen = "https://jeroen.r-universe.dev",
-                    CRAN   = "https://packagemanager.posit.co/cran/2024-12-01"),
-          pkgType = "both")
-  if (!requireNamespace("remotes", quietly = TRUE)) install.packages("remotes")
-  try(remotes::install_version("V8", version = ver, upgrade = "never"), silent = TRUE)
-  options(pkgType = old %||% "binary", repos = op)
-  invisible(requireNamespace("V8", quietly = TRUE) &&
-              as.character(utils::packageVersion("V8")) == ver)
-}
-
-ensure_v8()
-# then call renv::restore(prompt = FALSE)
-
-
-# Restore (retry once because renv may restart on first call)
-restore_once <- function() tryCatch({ renv::restore(prompt = FALSE); TRUE },
-                                    error = function(e) { message("❌ restore: ", conditionMessage(e)); FALSE })
+# 6) Restore renv library (no prompts; fail fast if something’s wrong)
 message("▶ renv::restore() …")
-ok <- restore_once(); if (!ok) { message("▶ retry restore …"); ok <- restore_once() }
-if (!ok) stop("Aborting: renv::restore() failed.")
+restored <- tryCatch({
+  renv::restore(prompt = FALSE)
+  TRUE
+}, error = function(e) {
+  message("❌ restore: ", conditionMessage(e))
+  FALSE
+})
+if (!restored) stop("Aborting: renv::restore() failed.")
 
-# Ensure PNG backend: chromote preferred; else webshot2 (+ PhantomJS)
-ensure_phantom <- function() {
-  if (!requireNamespace("webshot2", quietly = TRUE)) return(FALSE)
-  try(webshot2::install_phantomjs(), silent = TRUE)  # idempotent
-  nzchar(Sys.which("phantomjs"))
-}
-if (!requireNamespace("chromote", quietly = TRUE)) {
-  message("▶ Installing 'chromote' (PNG backend) …")
-  try(install.packages("chromote"), silent = TRUE)
-}
-if (!requireNamespace("chromote", quietly = TRUE)) {
-  if (!requireNamespace("webshot2", quietly = TRUE)) {
-    message("▶ Installing 'webshot2' (fallback PNG backend) …")
-    try(install.packages("webshot2"), silent = TRUE)
-  }
-  if (!ensure_phantom()) message("ℹ️ If PNG export fails later, run webshot2::install_phantomjs()")
-}
-
-# Diagnostics only (does not mutate)
+# 7) Run preflight (optional but helpful)
 if (file.exists("preflight.R")) {
   message("▶ Running preflight …")
-  try(source("preflight.R"), silent = TRUE)  # why: quick signal without blocking
+  try(source("preflight.R"), silent = TRUE)
 }
 
 message("✅ Bootstrap complete. Next: source('Render X Factor Update Graphics.R')")
