@@ -32,25 +32,55 @@ deterministic_session <- function() {
 }
 
 # ----------------------------- Backend --------------------------------
+find_chrome_ok <- function() {
+  ok <- tryCatch({
+    p <- getOption("chromote.chrome.path", NULL)
+    if (!is.null(p) && nzchar(p) && file.exists(p)) return(TRUE)
+    !is.null(tryCatch(chromote::find_chrome(), error = function(e) NULL))
+  }, error = function(e) FALSE)
+  ok
+}
+
 ensure_png_backend <- function() {
+  prefer <- getOption("xfactor.backend", NA_character_)  # "chromote" | "webshot2" | NA
+  has_chromote <- requireNamespace("chromote", quietly = TRUE) && find_chrome_ok()
   has_webshot2 <- requireNamespace("webshot2", quietly = TRUE)
-  has_chromote <- requireNamespace("chromote", quietly = TRUE)
-  if (!has_webshot2 && !has_chromote) {
-    stop(paste(
-      "PNG export requires webshot2 (plus PhantomJS) or chromote.",
-      "Install one of:",
-      "  install.packages('webshot2'); webshot2::install_phantomjs()",
-      "  # or",
-      "  install.packages('chromote')",
-      sep = "\n"
-    ))
+  
+  pick <- NA_character_
+  if (!is.na(prefer)) {
+    if (identical(prefer, "chromote") && has_chromote) pick <- "chromote"
+    if (identical(prefer, "webshot2") && has_webshot2) pick <- "webshot2"
   }
+  if (is.na(pick)) pick <- if (has_chromote) "chromote" else if (has_webshot2) "webshot2" else NA_character_
+  
+  if (is.na(pick)) stop(paste(
+    "PNG export requires either:",
+    "  - chromote + Google Chrome/Chromium, or",
+    "  - webshot2 + PhantomJS",
+    "Install one of:",
+    "  install.packages('chromote')  # and install Chrome",
+    "  # or",
+    "  install.packages('webshot2'); webshot2::install_phantomjs()",
+    sep = "\n"
+  ))
+  
+  if (identical(pick, "webshot2")) {
+    # ensure PhantomJS is present
+    try(webshot2::install_phantomjs(), silent = TRUE)
+    if (!nzchar(Sys.which("phantomjs")))
+      stop("webshot2 present but PhantomJS is missing; run webshot2::install_phantomjs()")
+  }
+  invisible(pick)
 }
+
 detect_png_backend <- function() {
-  if (requireNamespace("chromote", quietly = TRUE)) "chromote"
-  else if (requireNamespace("webshot2", quietly = TRUE)) "webshot2"
-  else "none"
+  prefer <- getOption("xfactor.backend", NA_character_)
+  if (!is.na(prefer)) return(prefer)
+  if (requireNamespace("chromote", quietly = TRUE) && find_chrome_ok()) return("chromote")
+  if (requireNamespace("webshot2", quietly = TRUE) && nzchar(Sys.which("phantomjs"))) return("webshot2")
+  "none"
 }
+
 
 # ------------------------- File System Utils -------------------------
 ensure_parent_dir <- function(path) {
