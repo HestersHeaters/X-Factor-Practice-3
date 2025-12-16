@@ -113,6 +113,15 @@ maybe_check_baseline_file <- function(rendered_png, baseline_path) {
   invisible(TRUE)
 }
 
+# --- Data-URI for local images (stable across machines) ---
+to_data_uri <- function(path) {
+  stopifnot(file.exists(path))
+  if (!requireNamespace("base64enc", quietly = TRUE)) stop("Install 'base64enc' to embed logos.")
+  mime <- "image/png"
+  base64enc::dataURI(file = path, mime = mime)
+}
+is_http_url  <- function(x) is.character(x) && grepl("^https?://", x, ignore.case = TRUE)
+
 # ----------------------- Image Post-Processing -----------------------
 normalize_png <- function(in_path, out_path, target_w, target_h,
                           gravity = "north", color = "white",
@@ -313,18 +322,18 @@ build_teams_table <- function(df_input, league = "NL", division = "W") {
   filtered_df <- filtered_df[, c("Team", team_order)]
   
   logos <- get_logo_map()
-  logos_url <- vapply(logos, function(p) {
-    if (!is_http_url(p) && file.exists(p)) to_file_url(p) else p
+
+  logo_src <- vapply(names(logos), function(k) {
+    p <- logos[[k]]
+    if (!is_http_url(p) && file.exists(p)) to_data_uri(p) else p
   }, FUN.VALUE = character(1))
   
   header_with_logos <- purrr::map(
     team_order,
-    ~gt::html(
-      paste0(
-        '<div style="text-align:center; font-weight:bold; font-size:20px;">',
-        '<img src="', logos_url[.x], '" height=50><br><span>', .x, '</span></div>'
-      )
-    )
+    ~gt::html(paste0(
+      '<div style="text-align:center; font-weight:bold; font-size:20px;">',
+      '<img src="', logo_src[.x], '" height=50><br><span>', .x, '</span></div>'
+    ))
   ) %>% rlang::set_names(team_order)
   
   gt_table <- gt::gt(filtered_df %>% dplyr::mutate(Team = dplyr::recode(
