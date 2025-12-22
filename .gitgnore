@@ -1,4 +1,4 @@
-# RStudio + R user files
+# --------------------------- RStudio & R User Files -----------------------------
 .Rproj.user/
 .Rhistory
 .RData
@@ -6,14 +6,14 @@
 .DS_Store
 Thumbs.db
 
-# Project files
+# ------------------------------- Project Files ----------------------------------
 *.Rproj
 
-# Outputs and transient build artifacts
+# ------------------------- Outputs & Build Artifacts ----------------------------
 outputs/
 build/drift/
 
-# renv: ignore volatile caches, but KEEP the embedded renv + activate.R
+# ---- Renv (ignore volatile caches, but keep the embedded renv & activate.R) ----
 renv/library/
 renv/staging/
 !renv/renv-*/
