@@ -4,54 +4,56 @@
 - Current:  `Create X Factor Update Graphics.R`
 
 ## Size & Structure
-- Lines: 252 → 707 (nonblank: 223 → 665; comments: 17 → 21)
-- Functions: 1 → 22 (avg len: 195 → 31.1, max len: 195 → 169)
+- Lines: 252 → 1006 (nonblank: 223 → 928; comments: 17 → 20)
+- Functions: 1 → 31 (avg len: 195 → 31.7, max len: 195 → 249)
 
 ## Package Changes
 - Added:
-  -   digest      # baseline hashes
-  -   dplyr
-  -   else if (webshot2, quietly = TRUE)) "webshot2"
-  -   glue
-  -   gt
-  -   has_b64 <- base64enc, quietly = TRUE)
-  -   has_chromote <- chromote, quietly = TRUE)
-  -   has_webshot2 <- webshot2, quietly = TRUE)
-  -   if (chromote, quietly = TRUE)) "chromote"
-  -   magick      # normalize_png, keyline
-  -   purrr
-  -   R.utils     # withTimeout
-  -   readxl
-  -   rlang
-  -   tidyr
-  -   withr
+  - base64enc
+  - chromote
+  - digest
+  - glue
+  - magick
+  - R.utils
+  - readxl
+  - rlang
+  - tidyr
+  - webshot
+  - withr
 - Removed:
+  - htmltools
+- Unchanged:
   - dplyr
   - gt
-  - htmltools
   - purrr
   - webshot2
 
-## New Capabilities (Current vs Original)
+## Capabilities — New
 - [x] Parameterized league/division (no hard-coded divisions)
 - [x] Deterministic session (locale, timezone, seed)
 - [x] Baseline hashing & drift enforcement
 - [x] Local logos (offline) with URL fallback
 - [x] Local Quicksand font embedding (offline)
-- [ ] Chromote backend support
-- [ ] Webshot2 support
+- [x] Chromote backend support
+- [ ] Webshot/Webshot2 support
 - [x] PNG normalization to exact canvas
 - [x] Inner keyline border
 - [x] Render timeout protection
-- [ ] Menu-driven runner / sheet picker
+- [x] Menu-driven runner / sheet picker
+
+## Capabilities — Retained
+- Webshot/Webshot2 support
+
+## Capabilities — Removed
+- (none)
 
 ## Notable Hard-coding Removed / Safer Patterns
 - [x] Removed hard-coded League/Division constants
 - [x] Replaced ESPN-only logos with local+fallback strategy
 
 ## Rendering & Assets (Signals found)
-- Original: espn_logos, google_font_quicksand, chromote_usage, webshot_usage, hardcoded_division
-- Current:  deterministic_session, baseline_hashing, local_logos, espn_logos, google_font_quicksand, base64_font_embed, chromote_usage, webshot_usage, png_normalization, keyline, timeout_enforced, parameterized_league_div
+- Original: espn_logos, google_font_quicksand, webshot_usage, hardcoded_division
+- Current:  deterministic_session, renv_integration, baseline_hashing, local_logos, espn_logos, google_font_quicksand, base64_font_embed, chromote_usage, webshot_usage, png_normalization, keyline, timeout_enforced, parameterized_league_div, menu_runner
 
 ## Notes
 - Feature presence is detected via fixed-string probes (no regex).
