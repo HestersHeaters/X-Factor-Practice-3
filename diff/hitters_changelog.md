@@ -9,25 +9,25 @@
 
 ## Package Changes
 - Added:
-  - base64enc
-  - chromote
-  - digest
-  - glue
-  - magick
-  - R.utils
-  - readxl
-  - webshot
-  - withr
+  - base64enc (current v0.1-3)
+  - chromote (current v0.5.1)
+  - digest (current v0.6.37)
+  - glue (current v1.8.0)
+  - magick (current v2.8.6)
+  - R.utils (current v2.13.0)
+  - readxl (current v1.4.5)
+  - webshot (current v0.5.5)
+  - withr (current v3.0.2)
 - Removed:
   - stringr
   - sysfonts
 - Unchanged:
-  - dplyr
-  - gt
-  - purrr
-  - rlang
-  - tidyr
-  - webshot2
+  - dplyr (current v1.1.4)
+  - gt (current v1.0.0)
+  - purrr (current v1.0.4)
+  - rlang (current v1.1.6)
+  - tidyr (current v1.3.1)
+  - webshot2 (current v0.1.2)
 
 ## Capabilities — New
 - [x] Parameterized league/division (no hard-coded divisions)
