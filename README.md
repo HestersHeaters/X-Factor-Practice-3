@@ -4,6 +4,19 @@ Generate polished **teams / hitters / pitchers** tables from Excel with fully re
 
 ---
 
+## Table of Contents
+- [Quick Start](#quick-start)
+- [Requirements](#requirements)
+- [Project Structure](#project-structure)
+- [Diffs from Original Scripts](#diffs-from-original-scripts)
+- [Running](#running)
+- [Baselines (Drift Detection)](#baselines-drift-detection)
+- [Fonts & Logos](#fonts--logos)
+- [Troubleshooting](#troubleshooting)
+- [License](#license)
+
+--
+
 ## Quick Start
 
 ```r
@@ -33,6 +46,73 @@ xcode-select --install
 
 ---
 
+## Project Structure
+
+```
+create_x_factor_update_graphics.R         # core engines + run_with_excel()
+render_x_factor_update_graphics.R         # interactive runner (menus + baselines)
+
+bootstrap.R                               # one-time setup (renv, backend hints, preflight)
+preflight.R                               # local checks & guidance
+
+mlb_x_factor_project.Rproj                # RStudio project
+.Rprofile                                 # auto-activates renv
+renv.lock
+renv/
+├─ activate.R
+└─ settings.json
+
+assets/
+├─ mlb/
+│  └─ <team>.png                          # ari.png, wsh.png, ...
+└─ quicksand_font/
+   ├─ Quicksand-Regular.woff2 / .ttf
+   ├─ Quicksand-Bold.woff2    / .ttf
+   └─ Quicksand-VariableFont_wght.ttf
+
+data/
+├─ team_data_x_factor_update.xlsx
+├─ hitter_data_x_factor_update.xlsx
+└─ pitcher_data_x_factor_update.xlsx
+
+build/
+├─ baselines/
+│  └─ baseline_<kind>_<league>_<division>_<period>.txt
+└─ diff/
+   ├─ INDEX.md
+   ├─ teams_changelog.md / teams_side_by_side.html
+   ├─ hitters_changelog.md / hitters_side_by_side.html
+   └─ pitchers_changelog.md / pitchers_side_by_side.html
+
+outputs/                                  # rendered PNG/HTML (git-ignored)
+```
+
+---
+
+## Diffs from Original Scripts
+
+This repo includes **curated narrative diffs** and optional **side-by-side HTML** views. They’re easier to read than raw GitHub compares.
+
+- **Start here:** `build/diff/INDEX.md`
+- **Teams:** `build/diff/teams_changelog.md`  (HTML: `build/diff/teams_side_by_side.html`)
+- **Hitters:** `build/diff/hitters_changelog.md`  (HTML: `build/diff/hitters_side_by_side.html`)
+- **Pitchers:** `build/diff/pitchers_changelog.md`  (HTML: `build/diff/pitchers_side_by_side.html`)
+
+The **original code** is stored in a separate branch (`Original---7.10.25`).
+> Diff scripts are intentionally **not** in `main` branch. They can be shared on request or hosted as a gist.
+
+### Highlights (Original → Current)
+- **Unified, parameterized engine** for league/division/sheet (no hard-coding).
+- **Menu-driven runner** with per-sheet baselines.
+- **Deterministic session** (locale/timezone/seed) for identical renders.
+- **Offline-stable assets** (local logos; Quicksand font embedding).
+- **PNG normalization** to a fixed canvas + **inner keyline**.
+- **Modern PNG backends** (`chromote` or `webshot2`) with **timeouts**.
+- **Consistent output naming**: `outputs/<kind>/<kind>_<period>/…`
+- **Canonical baselines**: `build/baselines/baseline_<kind>_<league>_<division>_<period>.txt` (lower_snake_case).
+
+---
+
 ## Running
 
 ### Interactive (recommended)
@@ -43,7 +123,7 @@ You choose:
 - **Kind:** teams / hitters / pitchers / ALL
 - **Scope:** single division (AL/NL × W/E/C) or all divisions
 - **Sheet:** timestamp snapshot
-- **Baselines:** enforce and/or write per kind/league/division/sheet
+- **Baselines:** enforce and/or write per kind x league x division x sheet
 
 **Outputs**
 ```
@@ -105,73 +185,6 @@ baseline_<kind>_<league>_<division>_<period>.txt
 
 - **Team logos:** `assets/mlb/*.png` preferred; ESPN CDN fallback if missing.
 - **Quicksand font:** `assets/quicksand_font/` (Regular/Bold/Variable). If present **and** `base64enc` installed, HTML embeds fonts for offline use; otherwise Google Fonts fallback.
-
----
-
-## Diffs from Original Scripts
-
-This repo includes **curated narrative diffs** and optional **side-by-side HTML** views. They’re easier to read than raw GitHub compares.
-
-- **Start here:** `build/diff/INDEX.md`
-- **Teams:** `build/diff/teams_changelog.md`  (HTML: `build/diff/teams_side_by_side.html`)
-- **Hitters:** `build/diff/hitters_changelog.md`  (HTML: `build/diff/hitters_side_by_side.html`)
-- **Pitchers:** `build/diff/pitchers_changelog.md`  (HTML: `build/diff/pitchers_side_by_side.html`)
-
-The **original code** is stored in a separate branch (`Original---7.10.25`).
-> Diff scripts are intentionally **not** in `main` branch. They can be shared on request or hosted as a gist.
-
-### Highlights (Original → Current)
-- **Unified, parameterized engine** for league/division/sheet (no hard-coding).
-- **Menu-driven runner** with per-sheet baselines.
-- **Deterministic session** (locale/timezone/seed) for identical renders.
-- **Offline-stable assets** (local logos; Quicksand font embedding).
-- **PNG normalization** to a fixed canvas + **inner keyline**.
-- **Modern PNG backends** (`chromote` or `webshot2`) with **timeouts**.
-- **Consistent output naming**: `outputs/<kind>/<kind>_<period>/…`
-- **Canonical baselines**: `build/baselines/baseline_<kind>_<league>_<division>_<period>.txt` (lower_snake_case).
-
----
-
-## Project Structure
-
-```
-create_x_factor_update_graphics.R         # core engines + run_with_excel()
-render_x_factor_update_graphics.R         # interactive runner (menus + baselines)
-
-bootstrap.R                               # one-time setup (renv, backend hints, preflight)
-preflight.R                               # local checks & guidance
-
-mlb_x_factor_project.Rproj                # RStudio project
-.Rprofile                                 # auto-activates renv
-renv.lock
-renv/
-├─ activate.R
-└─ settings.json
-
-assets/
-├─ mlb/
-│  └─ <team>.png                          # ari.png, wsh.png, ...
-└─ quicksand_font/
-   ├─ Quicksand-Regular.woff2 / .ttf
-   ├─ Quicksand-Bold.woff2    / .ttf
-   └─ Quicksand-VariableFont_wght.ttf
-
-data/
-├─ team_data_x_factor_update.xlsx
-├─ hitter_data_x_factor_update.xlsx
-└─ pitcher_data_x_factor_update.xlsx
-
-build/
-├─ baselines/
-│  └─ baseline_<kind>_<league>_<division>_<period>.txt
-└─ diff/
-   ├─ INDEX.md
-   ├─ teams_changelog.md / teams_side_by_side.html
-   ├─ hitters_changelog.md / hitters_side_by_side.html
-   └─ pitchers_changelog.md / pitchers_side_by_side.html
-
-outputs/                                  # rendered PNG/HTML (git-ignored)
-```
 
 ---
 
