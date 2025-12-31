@@ -1,4 +1,4 @@
-# mlb_x_factor_project — MLB X‑Factor Update Graphics
+# mlb_x_factor_project — MLB X Factor Update Graphics
 
 Generate polished **teams / hitters / pitchers** tables from Excel with fully reproducible **HTML + PNG** outputs. Deterministic rendering, offline fonts/logos, and optional baseline drift checks.
 
@@ -8,10 +8,7 @@ Generate polished **teams / hitters / pitchers** tables from Excel with fully re
 
 ```r
 # one-time per machine
-source("bootstrap.R")                  # renv restore, backend hints, preflight
-
-# sanity checks (✅ / ❌ with fixes)
-source("preflight.R")
+source("bootstrap.R")          # renv restore, backend hints, preflight.R (sanity checks - ✅ / ❌ with fixes)
 
 # interactive runner (menus: kind/scope/sheet + baselines)
 source("render_x_factor_update_graphics.R")
@@ -21,34 +18,18 @@ source("render_x_factor_update_graphics.R")
 
 ## Requirements
 
-- **R** 4.3.x (matches `renv.lock`).
+- **R 4.3.x** (matches `renv.lock`).
 - **Packages** (installed via `renv::restore()`):  
   `dplyr`, `purrr`, `tidyr`, `gt`, `readxl`, `glue`, `withr`, `R.utils`, `magick`, `rlang`, `digest`  
   Optional: `base64enc` (offline Quicksand embedding)
 - **PNG backend** (one of):  
-  **Recommended:** `chromote` (+ local Chrome/Chromium)  
+  Recommended: `chromote` (+ local Chrome/Chromium)  
   Alternative: `webshot2` (PhantomJS optional)
 
 macOS may require Command Line Tools for source builds:
 ```bash
 xcode-select --install
 ```
-
----
-
-## Data Inputs
-
-Place the three workbooks under `data/` using **snake_case** file names:
-
-```
-data/team_data_x_factor_update.xlsx
-data/hitter_data_x_factor_update.xlsx
-data/pitcher_data_x_factor_update.xlsx
-```
-
-Sheet names become a **period slug**:
-- `"End of Season 2025"` → `eos_2025`
-- `"July 2025"` → `july_2025`
 
 ---
 
@@ -60,8 +41,8 @@ source("render_x_factor_update_graphics.R")
 ```
 You choose:
 - **Kind:** teams / hitters / pitchers / ALL
-- **Scope:** single division or all AL/NL × W/E/C
-- **Sheet:** prompted each run
+- **Scope:** single division (AL/NL × W/E/C) or all divisions
+- **Sheet:** timestamp snapshot
 - **Baselines:** enforce and/or write per kind/league/division/sheet
 
 **Outputs**
@@ -127,21 +108,27 @@ baseline_<kind>_<league>_<division>_<period>.txt
 
 ---
 
-## Diffs (Portfolio Presentation — Option B)
+## Diffs from Original Scripts
 
-- **Diff outputs are committed** in `build/diff/` (Markdown + optional HTML).  
-- The **original code** is stored in a separate branch (e.g., `Original---7.10.25`).  
-- This keeps `main` clean; reviewers can inspect summaries quickly.
+This repo includes **curated narrative diffs** and optional **side-by-side HTML** views. They’re easier to read than raw GitHub compares.
 
-### GitHub compare links (replace `OWNER/REPO`)
-- **Additions since original:**  
-  `https://github.com/OWNER/REPO/compare/Original---7.10.25...main`
-- **Deletions from original:**  
-  `https://github.com/OWNER/REPO/compare/main...Original---7.10.25`
+- **Start here:** `build/diff/INDEX.md`
+- **Teams:** `build/diff/teams_changelog.md`  (HTML: `build/diff/teams_side_by_side.html`)
+- **Hitters:** `build/diff/hitters_changelog.md`  (HTML: `build/diff/hitters_side_by_side.html`)
+- **Pitchers:** `build/diff/pitchers_changelog.md`  (HTML: `build/diff/pitchers_side_by_side.html`)
 
-> Diff scripts are intentionally **not** in `main`. They can be shared on request or hosted as a gist.
+The **original code** is stored in a separate branch (`Original---7.10.25`).
+> Diff scripts are intentionally **not** in `main` branch. They can be shared on request or hosted as a gist.
 
-Open `build/diff/INDEX.md` in this repo for narrative summaries and links to side-by-side HTML diffs.
+### Highlights (Original → Current)
+- **Unified, parameterized engine** for league/division/sheet (no hard-coding).
+- **Menu-driven runner** with per-sheet baselines.
+- **Deterministic session** (locale/timezone/seed) for identical renders.
+- **Offline-stable assets** (local logos; Quicksand font embedding).
+- **PNG normalization** to a fixed canvas + **inner keyline**.
+- **Modern PNG backends** (`chromote` or `webshot2`) with **timeouts**.
+- **Consistent output naming**: `outputs/<kind>/<kind>_<period>/…`
+- **Canonical baselines**: `build/baselines/baseline_<kind>_<league>_<division>_<period>.txt` (lower_snake_case).
 
 ---
 
@@ -155,7 +142,7 @@ bootstrap.R                               # one-time setup (renv, backend hints,
 preflight.R                               # local checks & guidance
 
 mlb_x_factor_project.Rproj                # RStudio project
-.Rprofile                                  # auto-activates renv
+.Rprofile                                 # auto-activates renv
 renv.lock
 renv/
 ├─ activate.R
@@ -163,7 +150,7 @@ renv/
 
 assets/
 ├─ mlb/
-│  └─ <team>.png          # ari.png, wsh.png, ...
+│  └─ <team>.png                          # ari.png, wsh.png, ...
 └─ quicksand_font/
    ├─ Quicksand-Regular.woff2 / .ttf
    ├─ Quicksand-Bold.woff2    / .ttf
