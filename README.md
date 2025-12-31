@@ -15,7 +15,7 @@ Generate polished **teams / hitters / pitchers** tables from Excel with fully re
 - [Troubleshooting](#troubleshooting)
 - [License](#license)
 
---
+---
 
 ## Quick Start
 
@@ -200,3 +200,4 @@ baseline_<kind>_<league>_<division>_<period>.txt
 ## License
 
 See [LICENSE](./LICENSE).
+
