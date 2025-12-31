@@ -200,4 +200,3 @@ baseline_<kind>_<league>_<division>_<period>.txt
 ## License
 
 See [LICENSE](./LICENSE).
-
