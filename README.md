@@ -1,7 +1,7 @@
-# R Portfolio — X-Factor Update Graphics
+# mlb_x_factor_project — X‑Factor Update Graphics
 
-MLB visuals (**Teams / Hitters / Pitchers**) from Excel → **HTML + PNG**.  
-Offline-stable (local Quicksand font + local team logos). Deterministic rendering with optional drift baselines.
+MLB visuals (**teams / hitters / pitchers**) from Excel → **HTML + PNG**.  
+Offline‑stable (local Quicksand font + local team logos). Deterministic rendering with optional drift baselines.
 
 ---
 
@@ -11,76 +11,90 @@ Offline-stable (local Quicksand font + local team logos). Deterministic renderin
 # one-time per machine
 source("bootstrap.R")
 
-# normal usage (menus)
-source("Render X Factor Update Graphics.R")
-```
+# sanity checks (prints ✅ / ❌ with fixes)
+source("preflight.R")
 
-If bootstrap flags issues, it prints ✅/❌ items with exact fixes (e.g., macOS Command Line Tools, PNG backend, data files).
+# normal usage (interactive menus)
+source("render_x_factor_update_graphics.R")
+```
 
 ---
 
-## What changed at a glance (Original → Current)
+## What Changed (Original → Current)
 
-- **Parameterized builders**: single engine now handles *any* league/division/sheet (no hard-coded NL/AL or divisions).
-- **Menu-driven runner**: one script (`Render X Factor Update Graphics.R`) orchestrates Teams/Hitters/Pitchers, single/all divisions, and sheet selection.
-- **Deterministic session**: fixed seed/locale/timezone for identical visuals across machines.
-- **Reproducible env**: `renv.lock` + `.Rprofile` auto-activation; optional CI smoke test.
-- **Baseline integrity**: HTML hash baselines per kind/league/division (`build/baselines/`) with drift detection + write/update prompts.
-- **Robust rendering**: auto-detects `chromote`/`webshot2`, enforces timeouts, normalizes PNG to exact canvas, adds inner keyline.
-- **Offline-ready assets**: local MLB logos with URL fallback; local Quicksand font embedding (falls back to Google Fonts if needed).
-- **Cleaner visuals**: consistent headers/borders/padding; logo column labels; performance heat fills; legends; ellipsis for long names.
-- **Safer I/O**: explicit Excel inputs under `data/`; consistent outputs under `outputs/…`; helper utilities for file safety.
-- **Maintainable design**: modular functions, clearer naming, better error messages.
+- **Unified, parameterized builders**: one engine handles any league/division/sheet.
+- **Menu‑driven runner**: `render_x_factor_update_graphics.R` orchestrates kind, scope, sheet, and baselines.
+- **Deterministic session**: fixed seed/locale/time zone → identical visuals.
+- **Reproducible env**: `renv.lock` + `.Rprofile` auto‑activation.
+- **Baseline integrity**: per‑sheet HTML hash baselines with enforce / write‑update prompts.
+- **Robust rendering**: detects `chromote`/`webshot2`, timeouts, PNG canvas normalization, inner keyline.
+- **Offline‑ready assets**: local MLB logos; local Quicksand embedding (Google Fonts fallback).
+- **Cleaner visuals**: consistent headers, logo column labels, heat fills, legends, ellipsis for long names.
+- **Safer I/O**: explicit Excel inputs under `data/`; consistent outputs under `outputs/…`.
+- **Maintainable design**: modular functions, clearer naming, better errors.
+- **Diff tooling**: narrative + side‑by‑side diffs under `build/diff/`.
 
-> Want the narrative diffs? See `build/diff/INDEX.md`.
+For narrative diffs, open `build/diff/INDEX.md`.
 
 ---
 
 ## Project Structure
 
 ```
-Create X Factor Update Graphics.R         # core engines + run_with_excel()
-Render X Factor Update Graphics.R         # interactive runner (menus + baselines)
-bootstrap.R                               # one-time setup; runs preflight automatically
-preflight.R                               # local checks & fix guidance
-R Portfolio.Rproj
+create_x_factor_update_graphics.R         # core engines + run_with_excel()
+render_x_factor_update_graphics.R         # interactive runner (menus + baselines)
+bootstrap.R                               # one-time setup (renv restore, backend hints, preflight)
+preflight.R                               # local checks & actionable guidance
+mlb_x_factor_project.Rproj                # RStudio project
 .Rprofile                                 # auto-activates renv
 renv.lock
 renv/
 ├─ activate.R
 └─ settings.json
+
 build/
 └─ baselines/
-   └─ baseline_<kind>_<LG>_<DIV>.txt      # e.g., baseline_teams_AL_E.txt
+   └─ baseline_<kind>_<league>_<division>_<period>.txt
+      # e.g., baseline_teams_al_w_july_2025.txt
+
 assets/
-└─ mlb/
-   └─ <team>.png                          # e.g., ari.png, wsh.png
-Quicksand font/
-├─ Quicksand-VariableFont_wght.ttf
-└─ ...
+├─ mlb/
+│  └─ <team>.png          # e.g., ari.png, wsh.png
+└─ quicksand_font/
+   ├─ Quicksand-Regular.woff2 / .ttf
+   ├─ Quicksand-Bold.woff2    / .ttf
+   └─ Quicksand-VariableFont_wght.ttf  # optional
+
 data/
-├─ Hitter Data - X Factor Update.xlsx
-├─ Pitcher Data - X Factor Update.xlsx
-└─ Team Data - X Factor Update.xlsx
-outputs/                                   # ignored by git (rendered PNG/HTML)
+├─ team_data_x_factor_update.xlsx
+├─ hitter_data_x_factor_update.xlsx
+└─ pitcher_data_x_factor_update.xlsx
+
+tools/
+├─ diff_portfolio_plus.R
+└─ (optional) migrate_baselines_slug.R
+
+build/diff/                          # generated by make_diffs.R
+outputs/                              # rendered PNG/HTML (git-ignored)
+
 .github/
 └─ workflows/
-   └─ restore-smoke.yml                    # CI: restore + parse on macOS/Windows
+   └─ (optional) CI workflows
 ```
 
 ---
 
 ## Requirements
 
-- **R** 4.3.x (lockfile built on **4.3.2**; 4.3 is fine)
-- **Packages** (installed via `renv::restore()`):  
-  `dplyr`, `purrr`, `tidyr`, `gt`, `readxl`, `glue`, `withr`, `R.utils`, `magick`, `rlang`, `digest`  
-  Optional: `base64enc` (offline font embedding)
-- **PNG backend (choose one):**  
-  **Recommended:** `chromote` (auto-installed by bootstrap)  
-  Alternative: `webshot2` + `webshot2::install_phantomjs()`
+- **R** 4.3.x (lockfile built on 4.3; 4.3 is recommended)
+- **Packages** (managed via `renv::restore()`):
+  - Core: `dplyr`, `purrr`, `tidyr`, `gt`, `readxl`, `glue`, `withr`, `R.utils`, `magick`, `rlang`, `digest`
+  - Optional: `base64enc` (offline font embedding)
+- **PNG backend** (one of):
+  - **Recommended:** `chromote` (+ local Chrome/Chromium)
+  - Alternative: `webshot2` (PhantomJS optional)
 
-macOS may need **Xcode Command Line Tools** for any source builds:
+On macOS, CLT may be required for source builds:
 ```bash
 xcode-select --install
 ```
@@ -89,59 +103,66 @@ xcode-select --install
 
 ## Setup
 
-`.Rprofile` auto-activates `renv`.
+`.Rprofile` auto‑activates `renv` in this project.
 
 ```r
 # one-time per machine
-source("bootstrap.R")  # installs/activates renv, restores packages, ensures PNG backend, runs preflight
+source("bootstrap.R")  # restores packages, ensures backend, runs preflight
 ```
 
 Manual (if preferred):
-
 ```r
 install.packages("renv")
 if (file.exists("renv/activate.R")) source("renv/activate.R")
 renv::restore()
-install.packages("chromote")  # or webshot2; then webshot2::install_phantomjs()
+install.packages("chromote")  # or webshot2; if webshot2 then webshot2::install_phantomjs()
 source("preflight.R")
 ```
 
 ---
 
-## How to Run
+## Running
 
 ### Interactive (menus + sheet prompt + baselines)
-
 ```r
-source("Render X Factor Update Graphics.R")
+source("render_x_factor_update_graphics.R")
 ```
-
 You’ll choose:
-- **Kind:** Teams / Hitters / Pitchers / ALL  
-- **Scope:** single division or AL/NL × W/E/C  
-- **Sheet:** prompted every run  
-- **Baselines:** enforce and/or write per kind/league/division
+- **Kind**: teams / hitters / pitchers / ALL
+- **Scope**: single division or all AL/NL × W/E/C
+- **Sheet**: prompted every run
+- **Baselines**: enforce and/or write per kind/league/division/sheet
 
-**Outputs:**
+**Outputs**
 ```
-outputs/<kind>/<Noun> <Sheet Name>/
-  <LG> <DIV> <Noun> <Sheet Name>.html
-  <LG> <DIV> <Noun> <Sheet Name>.png
+outputs/<kind>/<kind>_<period>/
+  <league>_<division>_<kind>_<period>.html
+  <league>_<division>_<kind>_<period>.png
 ```
-`<Noun>` is `Team | Hitters | Pitchers`.
+Examples:
+```
+outputs/teams/teams_july_2025/al_w_teams_july_2025.png
+outputs/hitters/hitters_eos_2025/nl_c_hitters_eos_2025.html
+```
 
-### Direct call (non-interactive)
+Where:
+- `<league>` is `al|nl`
+- `<division>` is `w|e|c`
+- `<period>` is a slug of the sheet name
+  - `"End of Season 2025"` → `eos_2025`
+  - `"July 2025"` → `july_2025`
 
+### Direct call (non‑interactive)
 ```r
-source("Create X Factor Update Graphics.R")
+source("create_x_factor_update_graphics.R")
 run_with_excel(
-  input_xlsx  = "data/Team Data - X Factor Update.xlsx",
+  input_xlsx  = "data/team_data_x_factor_update.xlsx",
   sheet       = "July 2025",
-  league      = "AL", division = "E",
+  league      = "AL", division = "W",
   kind        = "teams",
-  output_png  = "outputs/teams/Team July 2025/AL E Team July 2025.png",
-  output_html = "outputs/teams/Team July 2025/AL E Team July 2025.html",
-  baseline    = "build/baselines/baseline_teams_AL_E.txt"  # or NA_character_
+  output_png  = "outputs/teams/teams_july_2025/al_w_teams_july_2025.png",
+  output_html = "outputs/teams/teams_july_2025/al_w_teams_july_2025.html",
+  baseline    = NA_character_  # or a path from build/baselines/...
 )
 ```
 
@@ -149,58 +170,59 @@ run_with_excel(
 
 ## Baselines (Drift Detection)
 
-- Files: `build/baselines/baseline_<kind>_<LG>_<DIV>.txt` (sheet-agnostic).
-- **Enforce:** compare current HTML hash vs baseline → error on drift.  
-- **Write/Update:** after approving current output as canonical (runner prompts).
+Baselines live under `build/baselines/` and are **per kind × league × division × sheet**:
+
+```
+baseline_<kind>_<league>_<division>_<period>.txt
+# e.g., baseline_teams_al_w_july_2025.txt
+```
+
+- **Read (back‑compat)**: the runner can find legacy uppercase and older naming patterns.
+- **Write (canonical)**: filenames are always lower_snake_case.
+- **One‑shot fixer** (if you need to normalize existing files):
+  ```r
+  normalize_baselines_now <- function(dir = "build/baselines") {
+    if (!dir.exists(dir)) stop("Baselines dir not found: ", dir)
+    files <- list.files(dir, pattern = "^baseline_.*\.txt$", full.names = TRUE)
+    for (f in files) {
+      bn <- basename(f)
+      bn_new <- tolower(bn)
+      bn_new <- gsub("_+", "_", bn_new)
+      bn_new <- gsub("^_|_$", "", bn_new)
+      if (!identical(bn_new, bn)) file.rename(f, file.path(dirname(f), bn_new))
+    }
+    invisible(TRUE)
+  }
+  # normalize_baselines_now("build/baselines")
+  ```
 
 ---
 
 ## Fonts & Logos
 
-- **Logos:** uses `assets/mlb/*.png` if present; otherwise falls back to ESPN URLs.  
-- **Quicksand:** if `Quicksand font/` exists **and** `base64enc` is installed, HTML embeds the font (offline). Otherwise uses Google Fonts.
+- **Team logos**: looks for `assets/mlb/*.png` first; falls back to ESPN CDN if missing.
+- **Quicksand font**: if `assets/quicksand_font/` is present *and* `base64enc` is installed, the font is embedded for offline HTML. Otherwise the Google Font is used.
 
 ---
 
-## CI (macOS + Windows)
+## Diffs (Changelog)
 
-Workflow: `.github/workflows/restore-smoke.yml`
-- Pins **R 4.3**.
-- Asserts lockfile R matches (major.minor).
-- Runs `bootstrap.R` and parses both scripts (sanity check).
-
-Optional badge (replace `OWNER/REPO`):
-```markdown
-![Restore & Smoke](https://github.com/OWNER/REPO/actions/workflows/restore-smoke.yml/badge.svg)
+```r
+source("make_diffs.R")  # generates build/diff/teams|hitters|pitchers_changelog.md + HTML
 ```
+Open `build/diff/INDEX.md` for links to Markdown and side‑by‑side HTML diffs.
 
 ---
 
 ## Troubleshooting
 
-- **Restore hangs on macOS:** run `xcode-select --install`, then re-run `source("bootstrap.R")`.  
-- **No PNG backend:** `install.packages("chromote")` (or `webshot2`; then `webshot2::install_phantomjs()`).  
-- **Missing inputs:** place the three Excel files under `data/` with exact names (see preflight).  
-- **Baseline drift:** if intentional, update baseline; else investigate data/assets/package changes.
-
----
-
-## Original vs Current
-
-- **Original snapshot (branch):** `Original---7.10.25`
-- **Current:** `main`
-
-**Deletions view (main → original)** — shows files the originals branch removed relative to current:  
-➡️ _paste your URL_ `https://github.com/<USER>/<REPO>/compare/main...Original---7.10.25`
-
-**Additions view (original → main)** — shows what’s been added/refactored since the original snapshot:  
-➡️ _paste your URL_ `https://github.com/<USER>/<REPO>/compare/Original---7.10.25...main`
-
-**Narrative diffs (skimmable)**  
-See `build/diff/INDEX.md` for change summaries and optional side-by-side HTML diffs.
+- **No PNG backend**: install `chromote` (preferred) or `webshot2` (optionally `webshot2::install_phantomjs()`).
+- **Baseline drift error**: if intentional, update baseline via the runner; otherwise investigate data/assets/version changes.
+- **macOS build errors**: install CLT with `xcode-select --install`.
+- **Missing inputs**: place the three Excel files under `data/` using the exact snake_case names above.
 
 ---
 
 ## License
-Noncommercial — see [LICENSE](./LICENSE) (PolyForm Noncommercial 1.0.0).
 
+See [LICENSE](./LICENSE).
