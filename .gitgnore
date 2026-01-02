@@ -1,21 +1,21 @@
-# --------------------------- RStudio & R User Files -----------------------------
+# ---- RStudio & R User Files ----
 .Rproj.user/
 .Rhistory
 .RData
 .Ruserdata
-.DS_Store
-Thumbs.db
+.Rapp.history
 
-# ------------------------------- Project Files ----------------------------------
-*.Rproj
-
-# ------------------------- Outputs & Build Artifacts ----------------------------
+# ----- Outputs & Transient ------
 outputs/
 build/drift/
 
-# ---- Renv (ignore volatile caches, but keep the embedded renv & activate.R) ----
+# ------ Editors / OS junk -------
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# ------ renv Local Caches -------
 renv/library/
 renv/staging/
-!renv/renv-*/
 !renv/activate.R
-
